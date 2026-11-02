@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <title>วงล้อแห่งชื่อ | สุ่มเลือกชื่อ</title>
+  <style>
+    * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0; }
+    body { background-color: #eef2f5; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+
+    /* แถบ Header ด้านบน */
+    header { background: white; padding: 10px 20px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #e0e0e0; box-shadow: 0 2px 5px rgba(0,0,0,0.05); z-index: 10; }
+    .logo { display: flex; align-items: center; gap: 12px; font-weight: bold; font-size: 1.35rem; color: #333; }
+    
+    /* โลโก้รูปวงล้อแบบในภาพตัวอย่าง */
+    .logo-icon { 
+      width: 32px; 
+      height: 32px; 
+      border-radius: 50%; 
+      background: conic-gradient(#ea4335 0deg 90deg, #fbbc05 90deg 180deg, #34a853 180deg 270deg, #4285f4 270deg 360deg);
+      box-shadow: inset 0 0 0 2px rgba(0,0,0,0.08);
+      flex-shrink: 0;
+    }
+
+    /* พื้นที่ทำงานหลัก */
+    .main-content { display: flex; flex: 1; height: calc(100vh - 55px); position: relative; }
+
+    /* ฝั่งซ้าย: วงล้อใหญ่เต็มพื้นที่ */
+    .wheel-container { flex: 1; display: flex; justify-content: center; align-items: center; position: relative; background: radial-gradient(circle, #ffffff 0%, #eef2f5 100%); }
+    canvas { cursor: pointer; max-width: 85vh; max-height: 85vh; }
+    
+    /* เข็มชี้วงล้อ (อยู่ด้านนอกขวามือ ชี้เข้าขอบวงล้อ) */
+    .pointer {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 0; height: 0;
+      border-top: 18px solid transparent;
+      border-bottom: 18px solid transparent;
+      border-right: 32px solid #f4b400;
+      z-index: 5;
+      filter: drop-shadow(-2px 2px 4px rgba(0,0,0,0.2));
+    }
+
+    /* ฝั่งขวา: แผงควบคุมรายชื่อ */
+    .sidebar { width: 320px; background: white; border-left: 1px solid #e0e0e0; display: flex; flex-direction: column; box-shadow: -2px 0 10px rgba(0,0,0,0.03); }
+    .tabs { display: flex; border-bottom: 1px solid #e0e0e0; background: #f8f9fa; }
+    .tab { flex: 1; padding: 12px; text-align: center; font-weight: bold; font-size: 0.95rem; color: #555; border-bottom: 2px solid transparent; cursor: pointer; }
+    .tab.active { color: #1a73e8; border-bottom: 2px solid #1a73e8; background: white; }
+
+    .editor-area { padding: 15px; display: flex; flex-direction: column; flex: 1; }
+    textarea { width: 100%; flex: 1; padding: 12px; border: 1px solid #dadce0; border-radius: 8px; font-size: 1rem; resize: none; outline: none; line-height: 1.5; }
+    textarea:focus { border-color: #1a73e8; }
+
+    /* Pop-up ผลลัพธ์แบบต้นฉบับเป๊ะๆ */
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); justify-content: center; align-items: center; z-index: 100; }
+    .modal-box { background: white; width: 480px; border-radius: 8px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.3); animation: pop 0.25s ease; }
+    @keyframes pop { 0% { transform: scale(0.8); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+    
+    .modal-header { background: #f4b400; color: #fff; padding: 15px 20px; font-size: 1.25rem; font-weight: bold; text-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+    .modal-body { padding: 40px 20px; text-align: center; font-size: 2.5rem; font-weight: bold; color: #333; word-break: break-word; }
+    
+    .modal-footer { padding: 12px 20px; background: #fff; display: flex; justify-content: flex-end; align-items: center; gap: 10px; border-top: 1px solid #eee; }
+    .modal-footer button { padding: 8px 16px; border: none; border-radius: 4px; font-size: 0.9rem; cursor: pointer; font-weight: 600; }
+    
+    .btn-close { background: transparent; color: #555; }
+    .btn-close:hover { background: #f1f1f1; }
+    .btn-remove { background: #4285f4; color: white; }
+    .btn-remove:hover { background: #3367d6; }
+    .btn-remove-all { background: #4285f4; color: white; }
+    .btn-remove-all:hover { background: #3367d6; }
+  </style>
+</head>
+<body>
+
+  <!-- Header บน -->
+  <header>
+    <div class="logo">
+      <div class="logo-icon"></div>
+      <span>วงล้อแห่งชื่อ</span>
+    </div>
+  </header>
+
+  <!-- พื้นที่หลัก -->
+  <div class="main-content">
+    
+    <!-- วงล้อ -->
+    <div class="wheel-container" id="wheelContainer">
+      <div class="pointer" id="pointer"></div>
+      <canvas id="wheel" width="700" height="700" onclick="spin()"></canvas>
+    </div>
+
+    <!-- แผงข้างขวา -->
+    <div class="sidebar">
+      <div class="tabs">
+        <div class="tab active">รายชื่อ</div>
+        <div class="tab">ผลลัพธ์</div>
+      </div>
+      <div class="editor-area">
+        <textarea id="itemsText" oninput="drawWheel()" placeholder="ใส่รายชื่อตรงนี้...">ปิ่น
+แยม
+ปิ่น</textarea>
+      </div>
+    </div>
+  </div>
+
+  <!-- ป๊อปอัปแจ้งผลลัพธ์ -->
+  <div class="modal" id="resultModal">
+    <div class="modal-box">
+      <div class="modal-header">เราได้ผู้ชนะแล้ว!</div>
+      <div class="modal-body" id="winnerName">-</div>
+      <div class="modal-footer">
+        <button class="btn-close" onclick="closeModal()">ปิด</button>
+        <button class="btn-remove" onclick="removeWinner()">ลบ</button>
+        <button class="btn-remove-all" onclick="removeAll()">ลบออกทุกรายการ</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+  // ==========================================
+  // 🔒 ตั้งค่าล็อกผลลัพธ์ไว้ในหลังบ้านตรงนี้ (ถ้าไม่ล็อกให้เว้นว่างเป็น "" ไว้)
+  // ==========================================
+  const secretPreset = "แยม"; 
+
+
+  const canvas = document.getElementById("wheel");
+  const ctx = canvas.getContext("2d");
+  
+  const colors = ["#4285f4", "#ea4335", "#fbbc05", "#34a853", "#9b59b6", "#00aba9", "#ff0097"];
+
+  let currentAngle = 0;
+  let isSpinning = false;
+  let winningItem = "";
+
+  function getItems() {
+    const text = document.getElementById("itemsText").value;
+    const list = text ? text.split("\n").filter(e => e.trim() !== "") : [];
+    return list.length > 0 ? list : ["ไม่มีข้อมูล"];
+  }
+
+  function drawWheel() {
+    const items = getItems();
+    const numItems = items.length;
+    const arc = (2 * Math.PI) / numItems;
+    const radius = canvas.width / 2;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    for (let i = 0; i < numItems; i++) {
+      const angle = currentAngle + i * arc;
+      
+      // วาดช่องวงล้อ
+      ctx.beginPath();
+      ctx.fillStyle = colors[i % colors.length];
+      ctx.moveTo(radius, radius);
+      ctx.arc(radius, radius, radius - 5, angle, angle + arc);
+      ctx.fill();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = "#ffffff";
+      ctx.stroke();
+
+      // วาดตัวอักษรแบบมาตรฐาน ไม่ยืด ไม่กลับหัว
+      ctx.save();
+      ctx.translate(radius, radius);
+      ctx.rotate(angle + arc / 2);
+
+      let fontSize = 28;
+      if (numItems <= 4) fontSize = 36;
+      else if (numItems > 8) fontSize = 22;
+      else if (numItems > 15) fontSize = 16;
+      
+      ctx.font = `bold ${fontSize}px 'Segoe UI', 'Leelawadee UI', sans-serif`;
+      ctx.fillStyle = "white";
+      ctx.textAlign = "right";
+      ctx.textBaseline = "middle";
+
+      let text = items[i];
+      ctx.fillText(text, radius - 35, 0);
+      ctx.restore();
+    }
+
+    // วงกลมสีขาวตรงกลาง
+    ctx.beginPath();
+    ctx.arc(radius, radius, 65, 0, 2 * Math.PI);
+    ctx.fillStyle = "white";
+    ctx.fill();
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = "#e0e0e0";
+    ctx.stroke();
+
+    if (numItems > 0 && !isSpinning) {
+      ctx.save();
+      ctx.translate(radius, radius);
+      ctx.textAlign = "center";
+      ctx.fillStyle = "#333";
+      ctx.font = "bold 15px 'Segoe UI', sans-serif";
+      ctx.fillText("คลิกเพื่อหมุน", 0, 5);
+      ctx.restore();
+    }
+
+    const pointer = document.getElementById("pointer");
+    const rect = canvas.getBoundingClientRect();
+    const containerRect = document.getElementById("wheelContainer").getBoundingClientRect();
+    const pointerRightPos = containerRect.right - rect.right - 8;
+    pointer.style.right = pointerRightPos + "px";
+  }
+
+  function spin() {
+    if (isSpinning) return;
+
+    const items = getItems();
+    const numItems = items.length;
+    const arc = (2 * Math.PI) / numItems;
+    
+    let targetIndex = -1;
+
+    const preset = secretPreset.trim();
+    if (preset !== "") {
+      targetIndex = items.findIndex(item => item.trim() === preset);
+    }
+
+    if (targetIndex === -1) {
+      targetIndex = Math.floor(Math.random() * numItems);
+    }
+
+    isSpinning = true;
+    winningItem = items[targetIndex];
+
+    const targetAngleOnWheel = 2 * Math.PI - (targetIndex * arc + arc / 2);
+    const extraRounds = 7 * 2 * Math.PI;
+    const finalAngle = extraRounds + targetAngleOnWheel;
+
+    let start = null;
+    const duration = 5500;
+
+    function animate(timestamp) {
+      if (!start) start = timestamp;
+      const progress = (timestamp - start) / duration;
+
+      if (progress < 1) {
+        const easeOut = 1 - Math.pow(1 - progress, 4);
+        currentAngle = finalAngle * easeOut;
+        drawWheel();
+        requestAnimationFrame(animate);
+      } else {
+        currentAngle = targetAngleOnWheel;
+        drawWheel();
+        isSpinning = false;
+        
+        document.getElementById("winnerName").innerText = winningItem;
+        document.getElementById("resultModal").style.display = "flex";
+      }
+    }
+
+    requestAnimationFrame(animate);
+  }
+
+  function closeModal() {
+    document.getElementById("resultModal").style.display = "none";
+  }
+
+  function removeWinner() {
+    let text = document.getElementById("itemsText").value;
+    let list = text.split("\n").map(e => e.trim()).filter(e => e !== "");
+    
+    const index = list.indexOf(winningItem);
+    if (index > -1) {
+      list.splice(index, 1);
+    }
+
+    document.getElementById("itemsText").value = list.join("\n");
+    closeModal();
+    drawWheel();
+  }
+
+  function removeAll() {
+    document.getElementById("itemsText").value = "";
+    closeModal();
+    drawWheel();
+  }
+
+  window.addEventListener('keydown', function(e) {
+    if (e.ctrlKey && e.key === 'Enter') {
+      spin();
+    }
+  });
+
+  window.onresize = drawWheel;
+  drawWheel();
+</script>
+
+</body>
+</html>
